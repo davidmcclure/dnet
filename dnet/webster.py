@@ -28,6 +28,13 @@ class Webster(object):
         Build out a word -> definition(s) dictionary.
         """
 
-        words = re.compile('\n[A-Z]+\n')
+        words = re.compile(r'''
+            (\n(?P<word>[A-Z-]+))   # Word.
+            (; [A-Z]+)*?\n          # Alternate spellings.
+            (?P<defn>.*?)           # Definition.
+            (?=\n[A-Z-]+[;\n]|$)    # Next word.
+            ''', re.S+re.X)
+
         for match in re.finditer(words, self.raw):
-            print match.group(0)
+            print match.group('word')
+            print match.group('defn')
