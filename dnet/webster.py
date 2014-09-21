@@ -2,6 +2,11 @@
 
 import os
 import re
+import enchant
+
+from nltk.stem import PorterStemmer
+from nltk.corpus import stopwords
+from collections import OrderedDict
 
 
 class Webster(object):
@@ -12,6 +17,9 @@ class Webster(object):
         """
         Open the dictionary file.
         """
+
+        # Porter stemmer.
+        self.stem = PorterStemmer().stem
 
         # Get the dictionary file path.
         dirname = os.path.dirname(os.path.realpath(__file__))
@@ -28,13 +36,29 @@ class Webster(object):
         Build out a word -> definition(s) dictionary.
         """
 
-        words = re.compile(r'''
-            (\n(?P<word>[A-Z-]+))   # Word.
-            (; [A-Z]+)*?\n          # Alternate spellings.
-            (?P<defn>.*?)           # Definition.
-            (?=\n[A-Z-]+[;\n]|$)    # Next word.
+        self.words = OrderedDict()
+        estopwords = stopwords.words('english')
+        dictionary = enchant.Dict()
+
+        w_pattern = re.compile(r'''
+            (\n(?P<word>[A-Z-]+))           # word
+            (.*?)(?=Defn:|\d\.|\([a-z]\))   # variants/origin
+            (?P<defn>.*?)                   # definition
+            (?=\n[A-Z-]+[;\n]|$)            # next word
             ''', re.S+re.X)
 
-        for match in re.finditer(words, self.raw):
-            print match.group('word')
-            print match.group('defn')
+        # Extract words.
+        for m in re.finditer(w_pattern, self.raw):
+
+            word = m.group('word').lower()
+            defn = m.group('defn').lower()
+
+            # Break if word isn't recognized.
+            if not dictionary.check(word): continue
+
+            tokens = []
+            for t in re.findall('[a-z]+', defn):
+                if dictionary.check(t) and t not in estopwords:
+                    tokens.append(self.stem(t))
+
+            self.words[self.stem(word)] = tokens
